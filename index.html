@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>双人对战·足球棋 - 策略棋盘游戏</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(145deg, #1a472a 0%, #0e2a1a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Poppins', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: #0f2b1a;
+            border-radius: 48px;
+            padding: 20px 24px 24px 24px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+        }
+
+        .canvas-wrapper {
+            background: #2b5e2b;
+            border-radius: 24px;
+            padding: 8px;
+            box-shadow: inset 0 0 0 2px #6f9e6f, 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 16px;
+            cursor: pointer;
+            background-color: #2c7a2c;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+            background: #1e2a1c;
+            border-radius: 60px;
+            padding: 12px 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .team-card {
+            background: #0f1f0c;
+            border-radius: 40px;
+            padding: 8px 24px;
+            text-align: center;
+            min-width: 160px;
+            box-shadow: inset 0 1px 3px #3b6e3b, 0 5px 10px black;
+        }
+
+        .team-name {
+            font-weight: bold;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+        }
+
+        .score {
+            font-size: 2.3rem;
+            font-weight: 800;
+            background: #00000066;
+            border-radius: 50px;
+            padding: 0 20px;
+            font-family: monospace;
+        }
+
+        .turn-indicator {
+            background: gold;
+            color: #1f3b1a;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 0 12px rgba(255,215,0,0.6);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+            justify-content: center;
+        }
+
+        button {
+            background: #2c3e2b;
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.1s linear;
+            box-shadow: 0 2px 6px black;
+            font-family: inherit;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        .primary-btn {
+            background: #e6b422;
+            color: #1e3a1e;
+            box-shadow: 0 3px 0 #8b5e1a;
+        }
+
+        .danger-btn {
+            background: #9e3c2c;
+        }
+
+        .select-info {
+            background: #2b4124;
+            border-radius: 32px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            display: inline-block;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #1f2a1b;
+            padding: 20px;
+            border-radius: 48px;
+            width: 320px;
+            text-align: center;
+            color: white;
+            border: 2px solid gold;
+        }
+
+        .shot-grid {
+            display: grid;
+            grid-template-columns: repeat(14, 1fr);
+            gap: 4px;
+            margin: 15px 0;
+            background: #00000055;
+            padding: 10px;
+            border-radius: 20px;
+        }
+
+        .shot-cell {
+            background: #3c2a1f;
+            aspect-ratio: 1/1;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.05s linear;
+        }
+
+        .shot-cell:hover { background: #e6b422; transform: scale(1.05);}
+        .slider-panel { margin: 10px 0; }
+        input { width: 80%; }
+
+        footer {
+            font-size: 11px;
+            text-align: center;
+            margin-top: 12px;
+            color: #bcda9f;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="game-container">
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas" width="872" height="472"></canvas>
+        </div>
+        <div class="info-panel">
+            <div class="team-card" style="border-left: 6px solid #ffaa44;">
+                <div class="team-name">🟡 主队 (左)</div>
+                <div id="teamAName">红方</div>
+            </div>
+            <div class="score"><span id="scoreA">0</span> : <span id="scoreB">0</span></div>
+            <div class="team-card" style="border-right: 6px solid #44aaff;">
+                <div class="team-name">🔵 客队 (右)</div>
+                <div id="teamBName">蓝方</div>
+            </div>
+            <div class="turn-indicator" id="turnText">⚽ 主队回合</div>
+        </div>
+        <div class="actions" id="actionBar">
+            <!-- 动态按钮组 -->
+        </div>
+        <div id="statusMsg" class="select-info" style="margin-top: 12px; text-align: center;">⚡ 点击球员 -> 移动模式 | 持球者高亮</div>
+        <footer>📐 传球/直塞成功率受距离+附近防守影响 | 铲球有犯规风险 | 射门加点博弈</footer>
+    </div>
+</div>
+
+<script>
+    // ---------- 配置 ----------
+    const FIELD_W = 109, FIELD_H = 59;
+    const CELL_W = 8, CELL_H = 8;   // canvas: 872x472
+    const HALF_TIME_LIMIT = 50;      // 每半场50时刻（传球/射门/抢断等动作消耗1时刻）
+    let gameState = null;
+
+    // 辅助函数: 欧氏距离
+    function euclid(p1, p2) { return Math.hypot(p1.x - p2.x, p1.y - p2.y); }
+
+    // 阵型预设坐标 (左队进攻向右, 右队镜像)
+    const FORMATIONS = {
+        "4-4-2": {
+            positions: ["GK", "LB", "CB", "CB", "RB", "LM", "CM", "CM", "RM", "ST", "ST"],
+            coords_left: (side) => side === 'left' ? 
+                [[6,30], [12,16], [12,26], [12,34], [12,44], [30,12], [30,28], [30,32], [30,48], [48,24], [48,36]] :
+                null
+        },
+        "4-3-3": {
+            positions: ["GK", "LB", "CB", "CB", "RB", "CM", "CDM", "CAM", "LW", "ST", "RW"],
+            coords_left: [[6,30],[12,14],[12,26],[12,34],[12,46],[28,28],[28,30],[28,32],[46,16],[46,30],[46,44]]
+        },
+        "4-2-3-1": {
+            positions: ["GK", "LB", "CB", "CB", "RB", "CDM", "CDM", "CAM", "LM", "RM", "ST"],
+            coords_left: [[6,30],[12,15],[12,27],[12,33],[12,45],[26,26],[26,34],[38,30],[32,14],[32,46],[48,30]]
+        }
+    };
+    // 生成球队 (左队坐标原始，右队镜像 x = 108 - x)
+    function initTeam(teamId, formationKey, side) {
+        const fm = FORMATIONS[formationKey];
+        const baseCoords = fm.coords_left; 
+        const positions = fm.positions;
+        let players = [];
+        for (let i=0; i<positions.length; i++) {
+            let x = baseCoords[i][0], y = baseCoords[i][1];
+            if (side === 'right') x = FIELD_W - 1 - x;
+            players.push({
+                id: `${teamId}_${i}`,
+                role: positions[i],
+                x, y,
+                team: teamId
+            });
+        }
+        return players;
+    }
+
+    // 随机开球
+    class Game {
+        constructor(formationType) {
+            this.formation = formationType;
+            this.teamA = { id: 0, name: "红魔", players: [], score: 0, side: 'left' };
+            this.teamB = { id: 1, name: "蓝军", players: [], score: 0, side: 'right' };
+            this.teamA.players = initTeam(0, formationType, 'left');
+            this.teamB.players = initTeam(1, formationType, 'right');
+            this.ball = { x: 55, y: 30, owner: null }; // owner: 球队id或null
+            this.currentTurn = null;   // 持有球权的队伍id
+            this.tick = 0;              // 时刻计数
+            this.half = 1;
+            this.matchEnd = false;
+            this.lastActionMsg = "";
+            // 移动模式状态
+            this.moveMode = false;
+            this.selectedPlayer = null;
+            this.possibleMoves = [];
+            // 初始化球权随机 + 开球
+            this.initKickOff();
+        }
+
+        initKickOff() {
+            const rand = Math.random() < 0.5 ? 0 : 1;
+            this.ball = { x: 55, y: 30, owner: rand };
+            this.currentTurn = rand;
+            // 开球: 将开球方所有球员移动? 规则: 开球方中圈开球, 默认持球球员在中点, 设定持球球员为离中点最近的己方球员
+            let ownerTeam = rand === 0 ? this.teamA : this.teamB;
+            let closest = null;
+            let minDist = 999;
+            ownerTeam.players.forEach(p => {
+                let d = euclid(p, {x:55,y:30});
+                if(d < minDist) { minDist = d; closest = p; }
+            });
+            if(closest) {
+                this.ball.owner = rand;
+                // 将持球球员移到球位置
+                closest.x = 55; closest.y = 30;
+            }
+            this.tick = 0;
+            this.half = 1;
+        }
+
+        getTeamById(id) { return id === 0 ? this.teamA : this.teamB; }
+        getOpponent(id) { return id === 0 ? this.teamB : this.teamA; }
+        getPlayersByTeam(teamId) { return teamId === 0 ? this.teamA.players : this.teamB.players; }
+
+        // 检查无人球权时判定归属 (传球失败/直塞后调用)
+        resolveBallPossession() {
+            if(this.ball.owner !== null) return this.ball.owner;
+            let minA = Infinity, minB = Infinity;
+            this.teamA.players.forEach(p => { let d = euclid(p, this.ball); if(d<minA) minA=d; });
+            this.teamB.players.forEach(p => { let d = euclid(p, this.ball); if(d<minB) minB=d; });
+            let diff = minA - minB;
+            let ratioA = 0;
+            if(diff > 6) ratioA = 100;
+            else if(diff > 5) ratioA = 80;
+            else if(diff > 3) ratioA = 70;
+            else if(diff > 0) ratioA = 60;
+            else if(diff < -6) ratioA = 0;
+            else if(diff < -5) ratioA = 20;
+            else if(diff < -3) ratioA = 30;
+            else if(diff < 0) ratioA = 40;
+            else ratioA = 50; // 相等
+
+            let r = Math.random()*100;
+            let winner = r <= ratioA ? 0 : 1;
+            this.ball.owner = winner;
+            return winner;
+        }
+
+        // 附近3x3对方球员计数
+        nearbyEnemies(teamId, x, y) {
+            let opponent = this.getOpponent(teamId);
+            let cnt = 0;
+            opponent.players.forEach(p => {
+                if(Math.abs(p.x - x) <= 3 && Math.abs(p.y - y) <= 3) cnt++;
+            });
+            return cnt;
+        }
+
+        // 传球/直塞通用成功率计算
+        computePassSuccess(passer, targetX, targetY, isThrough = false) {
+            let distance = euclid(passer, {x:targetX, y:targetY});
+            let baseRate = 100 - distance * 0.5;
+            let passerPenalty = this.nearbyEnemies(passer.team, passer.x, passer.y) * 10;
+            let targetPenalty = 0;
+            if(!isThrough) {
+                // 传球需要接球队员附近防守惩罚, 直塞则目标点附近防守影响判定时使用不同逻辑, 但简化附近3x3防守也减
+                targetPenalty = this.nearbyEnemies(this.getOpponent(passer.team), targetX, targetY) * 10;
+            } else {
+                targetPenalty = this.nearbyEnemies(this.getOpponent(passer.team), targetX, targetY) * 10;
+            }
+            let final = baseRate - passerPenalty - targetPenalty;
+            return Math.min(95, Math.max(5, final));
+        }
+
+        // 执行传球
+        attemptPass(passer, receiver) {
+            if(!passer || !receiver) return false;
+            let successRate = this.computePassSuccess(passer, receiver.x, receiver.y, false);
+            let success = Math.random()*100 <= successRate;
+            this.tick++;
+            if(success) {
+                // 成功: 球移动到接球队员，球权归接球方
+                this.ball.x = receiver.x;
+                this.ball.y = receiver.y;
+                this.ball.owner = receiver.team;
+                this.lastActionMsg = `✅ 传球成功! (${successRate.toFixed(1)}%)`;
+                return true;
+            } else {
+                // 失败偏移
+                let angle = Math.floor(Math.random()*4);
+                let offset = 1 + Math.floor(Math.random()*10);
+                let dx = 0, dy=0;
+                if(angle===0) dx=offset; if(angle===1) dx=-offset; if(angle===2) dy=offset; if(angle===3) dy=-offset;
+                let newX = Math.min(FIELD_W-1, Math.max(0, this.ball.x + dx));
+                let newY = Math.min(FIELD_H-1, Math.max(0, this.ball.y + dy));
+                this.ball.x = newX; this.ball.y = newY;
+                this.ball.owner = null;
+                this.resolveBallPossession();
+                this.lastActionMsg = `❌ 传球失败! 偏移至(${newX},${newY}) 球权变更`;
+                return false;
+            }
+        }
+
+        // 直塞
+        attemptThroughBall(passer, targetX, targetY) {
+            let successRate = this.computePassSuccess(passer, targetX, targetY, true);
+            let success = Math.random()*100 <= successRate;
+            this.tick++;
+            if(success) {
+                this.ball.x = targetX; this.ball.y = targetY;
+                this.ball.owner = null;
+                let newOwnerId = this.resolveBallPossession();
+                let newOwnerTeam = this.getTeamById(newOwnerId);
+                // 得到球的一方球员移至球的位置
+                let closestPlayer = null;
+                let minD = 999;
+                newOwnerTeam.players.forEach(p => {
+                    let d = euclid(p, this.ball);
+                    if(d < minD) { minD = d; closestPlayer = p; }
+                });
+                if(closestPlayer) { closestPlayer.x = this.ball.x; closestPlayer.y = this.ball.y; }
+                // 另一方球员随机移动1~2格靠近球附近
+                let loserTeam = this.getOpponent(newOwnerId);
+                loserTeam.players.forEach(p => {
+                    if(euclid(p, this.ball) < 8) {
+                        let angle = Math.random()*2*Math.PI;
+                        let r = 1+Math.random()*2;
+                        let nx = p.x + Math.cos(angle)*r;
+                        let ny = p.y + Math.sin(angle)*r;
+                        p.x = Math.min(FIELD_W-1, Math.max(0, nx));
+                        p.y = Math.min(FIELD_H-1, Math.max(0, ny));
+                    }
+                });
+                this.lastActionMsg = `⚡ 直塞成功! 球至(${targetX},${targetY}) 控球方移动接球`;
+                return true;
+            } else {
+                let angle = Math.floor(Math.random()*4);
+                let offset = 1+Math.floor(Math.random()*10);
+                let dx=0,dy=0;
+                if(angle===0) dx=offset; if(angle===1) dx=-offset; if(angle===2) dy=offset; if(angle===3) dy=-offset;
+                let newX = Math.min(FIELD_W-1, Math.max(0, targetX+dx));
+                let newY = Math.min(FIELD_H-1, Math.max(0, targetY+dy));
+                this.ball.x = newX; this.ball.y = newY;
+                this.ball.owner = null;
+                this.resolveBallPossession();
+                this.lastActionMsg = `💥 直塞失败! 偏至(${newX},${newY})`;
+                return false;
+            }
+        }
+
+        // 射门系统 弹窗处理, 外部调用
+        shoot(shooter, targetCol, targetRow, precisionPoints, powerPoints) {
+            let goalPos = { x: 0, y: 22 + targetRow }; // 球门网格 0-13水平(纵坐标Y), 高度8对应不同垂直位置
+            let distToGoal = euclid(shooter, goalPos);
+            let successChance = 100 - Math.floor(distToGoal * 3) + precisionPoints;
+            successChance = Math.min(95, Math.max(5, successChance));
+            let isGoalScored = Math.random()*100 <= successChance;
+            this.tick++;
+            let keeper = this.getOpponent(shooter.team).players.find(p => p.role === "GK");
+            if(!keeper) keeper = this.getOpponent(shooter.team).players[0];
+            if(!isGoalScored) {
+                this.lastActionMsg = `💢 射门偏出! (成功率${successChance.toFixed(1)}%)`;
+                // 随机偏移附近3x3网格
+                let offX = goalPos.x + (Math.random()*6-3);
+                let offY = goalPos.y + (Math.random()*6-3);
+                this.ball.x = Math.min(FIELD_W-1, Math.max(0, offX));
+                this.ball.y = Math.min(FIELD_H-1, Math.max(0, offY));
+                this.ball.owner = null;
+                this.resolveBallPossession();
+                return false;
+            }
+            // 门将扑救
+            let lineDist = Math.abs(keeper.x - goalPos.x) + Math.abs(keeper.y - goalPos.y);
+            let saveRate = 100 - lineDist * 10 + powerPoints; // 力量降低扑救成功率
+            saveRate = Math.min(90, Math.max(0, saveRate));
+            let isSaved = Math.random()*100 <= saveRate;
+            if(isSaved) {
+                this.lastActionMsg = `🧤 门将神扑! 扑救率${saveRate.toFixed(1)}%`;
+                this.ball.x = keeper.x + (Math.random()*4-2);
+                this.ball.y = keeper.y + (Math.random()*4-2);
+                this.ball.x = Math.min(FIELD_W-1, Math.max(0, this.ball.x));
+                this.ball.y = Math.min(FIELD_H-1, Math.max(0, this.ball.y));
+                this.ball.owner = null;
+                this.resolveBallPossession();
+                return false;
+            } else {
+                let scoringTeam = shooter.team;
+                if(scoringTeam === 0) this.teamA.score++; else this.teamB.score++;
+                this.lastActionMsg = `🎉 进球!!!  ${scoringTeam===0?'红方':'蓝方'} 得分!`;
+                // 进球后中圈开球, 由失球方开球
+                this.ball = { x: 55, y: 30, owner: scoringTeam===0?1:0 };
+                this.currentTurn = this.ball.owner;
+                // 重置所有球员位置到初始阵型(简易: 重新初始化站位保持阵型)
+                this.resetPositionsAfterGoal();
+                return true;
+            }
+        }
+
+        resetPositionsAfterGoal() {
+            let newPlayersA = initTeam(0, this.formation, 'left');
+            let newPlayersB = initTeam(1, this.formation, 'right');
+            this.teamA.players = newPlayersA;
+            this.teamB.players = newPlayersB;
+            // 持球方开球球员移至中点
+            let ownerTeam = this.getTeamById(this.currentTurn);
+            let closestMid = ownerTeam.players.reduce((a,b)=> (euclid(a,{x:55,y:30})<euclid(b,{x:55,y:30})?a:b));
+            closestMid.x = 55; closestMid.y = 30;
+            this.ball.x = 55; this.ball.y = 30;
+            this.ball.owner = this.currentTurn;
+        }
+
+        // 抢断 & 铲球
+        tackle(defender, attacker, isSlide) {
+            let rate = isSlide ? 40 : 30;
+            let foul = (isSlide && Math.random()<0.1) ? true : false;
+            let success = Math.random()*100 <= rate;
+            this.tick++;
+            if(foul) {
+                this.lastActionMsg = `⚠️ 铲球犯规！任意球，球权不变`;
+                return false;
+            }
+            if(success) {
+                this.ball.owner = defender.team;
+                this.ball.x = defender.x;
+                this.ball.y = defender.y;
+                this.lastActionMsg = `🛡️ 抢断成功！球权转换`;
+                return true;
+            } else {
+                this.lastActionMsg = `❌ 抢断失败`;
+                return false;
+            }
+        }
+
+        // 过人
+        dribble(attacker, defender) {
+            let success = Math.random()*100 <= 45;
+            let foul = (!success && Math.random()<0.1) ? true : false;
+            this.tick++;
+            if(foul) {
+                this.lastActionMsg = `🤕 防守方犯规！任意球，球权不变`;
+                return false;
+            }
+            if(success) {
+                let angle = Math.random()*2*Math.PI;
+                let dx = Math.cos(angle)*(1+Math.random()*2);
+                let dy = Math.sin(angle)*(1+Math.random()*2);
+                attacker.x = Math.min(FIELD_W-1, Math.max(0, attacker.x+dx));
+                attacker.y = Math.min(FIELD_H-1, Math.max(0, attacker.y+dy));
+                this.ball.x = attacker.x; this.ball.y = attacker.y;
+                this.lastActionMsg = `💨 过人成功！甩开防守`;
+                return true;
+            } else {
+                this.lastActionMsg = `🚫 过人失败`;
+                return false;
+            }
+        }
+
+        // 移动球员
+        movePlayer(player, newX, newY) {
+            let dx = Math.abs(player.x - newX);
+            let dy = Math.abs(player.y - newY);
+            if(dx <= 5 && dy <= 5 && newX>=0 && newX<FIELD_W && newY>=0 && newY<FIELD_H) {
+                player.x = newX;
+                player.y = newY;
+                if(this.ball.owner === player.team && euclid(this.ball, player) < 1.2) {
+                    this.ball.x = player.x;
+                    this.ball.y = player.y;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        endTurn() {
+            // 切换球权所属队伍回合
+            if(this.ball.owner !== null) this.currentTurn = this.ball.owner;
+            else this.currentTurn = this.resolveBallPossession();
+            // 半场结束判断
+            if(this.tick >= HALF_TIME_LIMIT && this.half === 1) {
+                this.half = 2;
+                this.tick = 0;
+                this.lastActionMsg = "⏸️ 上半场结束，进入下半场！";
+                // 交换开球
+                this.currentTurn = this.currentTurn === 0 ? 1 : 0;
+                this.ball.owner = this.currentTurn;
+                this.resetPositionsAfterGoal();
+            } else if(this.tick >= HALF_TIME_LIMIT && this.half === 2) {
+                this.matchEnd = true;
+                this.lastActionMsg = "🏆 全场比赛结束！";
+            }
+        }
+    }
+
+    // ---------- UI & 渲染 ----------
+    let canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+    let currentGame = null;
+
+    function render() {
+        if(!currentGame) return;
+        ctx.clearRect(0,0,872,472);
+        // 画网格草坪
+        for(let i=0;i<=FIELD_W;i++) { ctx.beginPath(); ctx.moveTo(i*CELL_W,0); ctx.lineTo(i*CELL_W,472); ctx.strokeStyle="#4caf5066"; ctx.stroke();}
+        for(let i=0;i<=FIELD_H;i++) { ctx.beginPath(); ctx.moveTo(0,i*CELL_H); ctx.lineTo(872,i*CELL_H); ctx.stroke();}
+        // 禁区
+        ctx.fillStyle="#3e9e3eaa";
+        ctx.fillRect(0,6*CELL_H,16*CELL_W, (52-6)*CELL_H);
+        ctx.fillRect(109*CELL_W-16*CELL_W,6*CELL_H,16*CELL_W, (52-6)*CELL_H);
+        ctx.fillStyle="#c9a87b";
+        // 点球点
+        ctx.beginPath(); ctx.arc(11*CELL_W,30*CELL_H,4,0,2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(98*CELL_W,30*CELL_H,4,0,2*Math.PI); ctx.fill();
+        
+        // 画球员
+        [currentGame.teamA, currentGame.teamB].forEach(team => {
+            team.players.forEach(p => {
+                let x = p.x*CELL_W, y=p.y*CELL_H;
+                ctx.shadowBlur=0;
+                let isHolder = (currentGame.ball.owner === p.team && euclid(p, currentGame.ball) < 1.2);
+                ctx.fillStyle = p.team === 0 ? "#e34d4d" : "#4d7ee3";
+                if(isHolder) ctx.fillStyle = "#ffcc44";
+                ctx.beginPath(); ctx.arc(x+4, y+4, 6, 0, 2*Math.PI); ctx.fill();
+                ctx.fillStyle = "white"; ctx.font = "bold 10px monospace"; ctx.fillText(p.role, x+1, y+7);
+                if(currentGame.selectedPlayer === p) { ctx.strokeStyle = "gold"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x+4,y+4,9,0,2*Math.PI); ctx.stroke();}
+            });
+        });
+        // 画球
+        ctx.fillStyle = "orange"; ctx.beginPath(); ctx.arc(currentGame.ball.x*CELL_W+4, currentGame.ball.y*CELL_H+4, 5, 0, 2*Math.PI); ctx.fill();
+        ctx.fillStyle = "black"; ctx.font="bold 8px"; ctx.fillText("⚽", currentGame.ball.x*CELL_W+2, currentGame.ball.y*CELL_H+6);
+        document.getElementById('scoreA').innerText = currentGame.teamA.score;
+        document.getElementById('scoreB').innerText = currentGame.teamB.score;
+        let turnName = currentGame.currentTurn === 0 ? "🔴 主队回合" : "🔵 客队回合";
+        document.getElementById('turnText').innerText = turnName;
+        if(currentGame.lastActionMsg) document.getElementById('statusMsg').innerHTML = `📢 ${currentGame.lastActionMsg}`;
+    }
+
+    function rebuildUI() {
+        render();
+        let bar = document.getElementById('actionBar');
+        bar.innerHTML = `
+            <button id="moveModeBtn" class="primary-btn">🎮 移动模式</button>
+            <button id="passBtn">⚽ 传球</button>
+            <button id="throughBtn">➡️ 直塞</button>
+            <button id="shootBtn">🎯 射门</button>
+            <button id="tackleBtn">🦵 抢断</button>
+            <button id="slideBtn">⚠️ 铲球</button>
+            <button id="dribbleBtn">💃 过人</button>
+            <button id="endTurnBtn">⏭️ 结束回合</button>
+        `;
+        document.getElementById('moveModeBtn').onclick = () => { currentGame.moveMode = true; currentGame.selectedPlayer = null; alert("移动模式开启: 点击己方球员，再点击绿色高亮区域移动"); };
+        document.getElementById('passBtn').onclick = () => handlePass();
+        document.getElementById('throughBtn').onclick = () => handleThrough();
+        document.getElementById('shootBtn').onclick = () => handleShoot();
+        document.getElementById('tackleBtn').onclick = () => handleTackle(false);
+        document.getElementById('slideBtn').onclick = () => handleTackle(true);
+        document.getElementById('dribbleBtn').onclick = () => handleDribble();
+        document.getElementById('endTurnBtn').onclick = () => { currentGame.endTurn(); if(currentGame.matchEnd) alert("比赛结束!"); currentGame.moveMode=false; currentGame.selectedPlayer=null; render(); };
+    }
+
+    function getCurrentPlayerByClick(px,py) {
+        let teamPlayers = currentGame.getTeamById(currentGame.currentTurn).players;
+        for(let p of teamPlayers) {
+            let cx = p.x*CELL_W+4, cy = p.y*CELL_H+4;
+            if(Math.hypot(px-cx, py-cy) < 12) return p;
+        }
+        return null;
+    }
+
+    function handlePass() {
+        let ownerTeam = currentGame.getTeamById(currentGame.currentTurn);
+        let holder = ownerTeam.players.find(p => euclid(p, currentGame.ball) < 2);
+        if(!holder) { alert("持球球员不在身边!"); return; }
+        let targets = currentGame.getTeamById(currentGame.currentTurn).players.filter(p=>p!==holder);
+        if(targets.length===0) return;
+        let targetNames = targets.map((p,i)=>`${i}:${p.role}(${p.x},${p.y})`).join("\n");
+        let idx = prompt(`选择接球球员:\n${targetNames}`, "0");
+        let target = targets[parseInt(idx)];
+        if(target) { currentGame.attemptPass(holder, target); currentGame.endTurn(); currentGame.moveMode=false; render();}
+    }
+    function handleThrough() {
+        let ownerTeam = currentGame.getTeamById(currentGame.currentTurn);
+        let holder = ownerTeam.players.find(p => euclid(p, currentGame.ball) < 2);
+        if(!holder) { alert("无球权"); return; }
+        let x = prompt("直塞目标X (0-108)", "70");
+        let y = prompt("直塞目标Y (0-58)", "30");
+        if(x && y) currentGame.attemptThroughBall(holder, parseInt(x), parseInt(y));
+        currentGame.endTurn(); render();
+    }
+    function handleShoot() {
+        let ownerTeam = currentGame.getTeamById(currentGame.currentTurn);
+        let shooter = ownerTeam.players.find(p => euclid(p, currentGame.ball) < 2);
+        if(!shooter) { alert("无球权无法射门"); return; }
+        let modal = document.createElement('div'); modal.className='modal';
+        modal.innerHTML = `<div class="modal-content"><h3>🎯 射门加点 (10点)</h3>
+        <div>精度: <input id="prec" type="range" min="0" max="10" value="5"> <span id="precVal">5</span></div>
+        <div>力量: <input id="pow" type="range" min="0" max="10" value="5"> <span id="powVal">5</span></div>
+        <div>选择射门格子 (8x14网格)<div class="shot-grid" id="shotGrid"></div></div>
+        <button id="confirmShot">射门!</button><button id="closeModal">取消</button></div>`;
+        document.body.appendChild(modal);
+        let gridDiv = modal.querySelector('#shotGrid');
+        for(let r=0;r<8;r++) for(let c=0;c<14;c++) { let cell=document.createElement('div'); cell.className='shot-cell'; cell.innerText=`${r+1},${c+1}`; cell.onclick=()=>{ modal.selectedCell={row:r,col:c}; alert(`选中格子 (${r},${c})`); }; gridDiv.appendChild(cell); }
+        let precSlider=modal.querySelector('#prec'), powSlider=modal.querySelector('#pow');
+        precSlider.oninput=()=>modal.querySelector('#precVal').innerText=precSlider.value;
+        powSlider.oninput=()=>modal.querySelector('#powVal').innerText=powSlider.value;
+        modal.querySelector('#confirmShot').onclick=()=>{
+            let prec=parseInt(precSlider.value), pow=parseInt(powSlider.value);
+            if(!modal.selectedCell) { alert("请点击网格选择一个射门区域"); return; }
+            currentGame.shoot(shooter, modal.selectedCell.col, modal.selectedCell.row, prec, pow);
+            currentGame.endTurn();
+            document.body.removeChild(modal);
+            render();
+        };
+        modal.querySelector('#closeModal').onclick=()=>document.body.removeChild(modal);
+    }
+    function handleTackle(isSlide) {
+        let defTeam = currentGame.getTeamById(currentGame.currentTurn);
+        let attackerTeam = currentGame.getOpponent(currentGame.currentTurn);
+        let attacker = attackerTeam.players.find(p => euclid(p, currentGame.ball) < 3);
+        if(!attacker) { alert("附近无对方持球队员"); return; }
+        let def = defTeam.players.reduce((a,b)=> (euclid(a,attacker)<euclid(b,attacker)?a:b));
+        currentGame.tackle(def, attacker, isSlide);
+        currentGame.endTurn(); render();
+    }
+    function handleDribble() {
+        let offTeam = currentGame.getTeamById(currentGame.currentTurn);
+        let dribbler = offTeam.players.find(p => euclid(p, currentGame.ball) < 2);
+        if(!dribbler) { alert("无球权"); return; }
+        let defTeam = currentGame.getOpponent(currentGame.currentTurn);
+        let defender = defTeam.players.reduce((a,b)=> (euclid(a,dribbler)<euclid(b,dribbler)?a:b));
+        currentGame.dribble(dribbler, defender);
+        currentGame.endTurn(); render();
+    }
+    canvas.onclick = (e) => {
+        let rect = canvas.getBoundingClientRect();
+        let scaleX = canvas.width/rect.width;
+        let scaleY = canvas.height/rect.height;
+        let mouseX = (e.clientX - rect.left)*scaleX;
+        let mouseY = (e.clientY - rect.top)*scaleY;
+        let gridX = Math.floor(mouseX/CELL_W), gridY = Math.floor(mouseY/CELL_H);
+        if(currentGame.moveMode) {
+            if(currentGame.selectedPlayer) {
+                if(currentGame.movePlayer(currentGame.selectedPlayer, gridX, gridY)) {
+                    currentGame.selectedPlayer = null; render();
+                } else alert("移动超出5x5范围");
+            } else {
+                let player = getCurrentPlayerByClick(mouseX, mouseY);
+                if(player && player.team === currentGame.currentTurn) currentGame.selectedPlayer = player;
+                else alert("请选择己方球员");
+            }
+            render();
+        }
+    };
+    
+    function startNewGame(formation) {
+        currentGame = new Game(formation);
+        rebuildUI();
+        render();
+    }
+    // 阵型选择器
+    let selectorDiv = document.createElement('div'); selectorDiv.style.marginBottom='12px'; selectorDiv.style.display='flex'; selectorDiv.style.gap='8px'; selectorDiv.innerHTML = `<span style="color:white;">阵型:</span><button id="form442">4-4-2</button><button id="form433">4-3-3</button><button id="form4231">4-2-3-1</button><button id="resetGame">🔄 新比赛</button>`;
+    document.querySelector('.game-container').insertBefore(selectorDiv, document.querySelector('.canvas-wrapper'));
+    document.getElementById('form442').onclick=()=>startNewGame('4-4-2');
+    document.getElementById('form433').onclick=()=>startNewGame('4-3-3');
+    document.getElementById('form4231').onclick=()=>startNewGame('4-2-3-1');
+    document.getElementById('resetGame').onclick=()=>startNewGame(currentGame?currentGame.formation:'4-4-2');
+    startNewGame('4-4-2');
+</script>
+</body>
+</html>
